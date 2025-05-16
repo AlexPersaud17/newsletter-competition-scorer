@@ -21,38 +21,54 @@ def page_config():
     st.set_page_config(layout="wide")
     st.title("Newsletter Competition Judge")
     st.session_state["score"] = False
+    st.session_state["uploaded_files"] = []
+    with st.sidebar.header("Reset"):
+        if st.button("Reset", type="primary"):
+            st.session_state["uploaded_files"] = []
+            st.session_state["score"] = False
+            st.rerun()
 
 
 async def call_model_async(file):
     pdf_bytes = types.Part.from_bytes(
         data=file.getvalue(), mime_type='application/pdf'
     )
-    try:
-        response = await CLIENT.aio.models.generate_content(
-            model=MODEL,
-            contents=[pdf_bytes, USER_PROMPT],
-            config=GenerateContentConfig(system_instruction=[SYSTEM_PROMPT])
-        )
-        return response.text
-    except Exception as e:
-        return f"<company><name>{file.name}</name><comment>Model call failed: {e}</comment></company>"
+    with st.spinner(f"Scoring {file.name}..."):
+        try:
+            response = await CLIENT.aio.models.generate_content(
+                model=MODEL,
+                contents=[pdf_bytes, USER_PROMPT],
+                config=GenerateContentConfig(
+                    system_instruction=[SYSTEM_PROMPT])
+            )
+            return response.text
+        except Exception as e:
+            return f"<company><name>{file.name}</name><comment>Model call failed: {e}</comment></company>"
 
 
 def newsletter_uploader():
-    st.subheader("Upload Newsletter")
-    uploaded_file = st.file_uploader(
-        "Choose a file",
-        accept_multiple_files=True,
-        type=["pdf"])
-    return uploaded_file
+    st.sidebar.header("Upload Newsletters")
+    with st.sidebar.header("Upload"):
+        with st.form("uploader-form", clear_on_submit=True):
+            uploaded_files = st.file_uploader(
+                "Choose a file",
+                accept_multiple_files=True,
+                type=["pdf"])
+            st.form_submit_button("Upload")
+
+    if uploaded_files:
+        st.session_state["uploaded_files"] = uploaded_files
+    return st.session_state["uploaded_files"]
 
 
-def newsletter_previewer(uploaded_files):
+def newsletter_previewer():
+    uploaded_files = st.session_state.get("uploaded_files", [])
     if uploaded_files is not None:
-        for file in uploaded_files:
-            with st.expander(file.name):
-                with st.container(height=500):
-                    pdf_viewer(file.getvalue(), pages_vertical_spacing=10)
+        with st.spinner("Uploading..."):
+            for file in uploaded_files:
+                with st.expander(file.name):
+                    with st.container(height=500):
+                        pdf_viewer(file.getvalue(), pages_vertical_spacing=10)
 
 
 def format_response(response):
@@ -90,9 +106,7 @@ def create_table(scores):
                 rows.append(row)
     if rows:
         df = pd.DataFrame(rows)
-        st.table(df)
-    else:
-        st.info("No data to display.")
+        st.dataframe(data=df, width=800)
 
 
 async def score_all(files):
@@ -100,17 +114,16 @@ async def score_all(files):
     return await asyncio.gather(*tasks)
 
 
-def start_scoring(uploaded_files):
+def start_scoring():
+    uploaded_files = st.session_state.get("uploaded_files", [])
     if not uploaded_files:
-        st.info("Please upload newsletters first.")
+        st.info("Please \"upload\" newsletters first.")
         return []
 
     if not st.session_state.get("score"):
         return []
 
-    st.subheader("Score")
-    with st.spinner("Scoring..."):
-        scores = asyncio.run(score_all(uploaded_files))
+    scores = asyncio.run(score_all(uploaded_files))
     return scores
 
 
@@ -119,13 +132,15 @@ def app():
     pdf_preview, score = st.columns(2)
 
     with pdf_preview:
-        uploaded_files = newsletter_uploader()
-        newsletter_previewer(uploaded_files)
+        pdf_preview.header("Newsletter Preview")
+        newsletter_uploader()
+        newsletter_previewer()
 
     with score:
-        if pdf_preview.button("Begin Scoring"):
+        score.header("Score")
+        if score.button("Begin Scoring"):
             st.session_state["score"] = True
-        scores = start_scoring(uploaded_files)
+        scores = start_scoring()
 
         create_table(scores)
 
