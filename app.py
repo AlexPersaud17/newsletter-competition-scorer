@@ -18,7 +18,8 @@ MODEL = "gemini-2.5-flash-preview-04-17"
 
 
 def page_config():
-    st.set_page_config(layout="wide")
+    st.set_page_config(
+        layout="wide", page_title="Newsletter Competition Judge")
     st.title("Newsletter Competition Judge")
     st.session_state["score"] = False
     st.session_state["uploaded_files"] = []
@@ -106,7 +107,8 @@ def create_table(scores):
                 rows.append(row)
     if rows:
         df = pd.DataFrame(rows)
-        st.dataframe(data=df, width=800)
+        st.dataframe(data=df,
+                     hide_index=True)
 
 
 async def score_all(files):
@@ -138,8 +140,9 @@ async def app():
 
     with score:
         score.header("Score")
-        if score.button("Begin Scoring"):
-            st.session_state["score"] = True
+        if st.session_state["uploaded_files"] != []:
+            if score.button("Begin Scoring"):
+                st.session_state["score"] = True
         scores = start_scoring()
 
         create_table(await scores)
