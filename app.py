@@ -114,7 +114,7 @@ async def score_all(files):
     return await asyncio.gather(*tasks)
 
 
-def start_scoring():
+async def start_scoring():
     uploaded_files = st.session_state.get("uploaded_files", [])
     if not uploaded_files:
         st.info("Please \"upload\" newsletters first.")
@@ -123,11 +123,11 @@ def start_scoring():
     if not st.session_state.get("score"):
         return []
 
-    scores = asyncio.run(score_all(uploaded_files))
+    scores = await score_all(uploaded_files)
     return scores
 
 
-def app():
+async def app():
     page_config()
     pdf_preview, score = st.columns(2)
 
@@ -142,8 +142,8 @@ def app():
             st.session_state["score"] = True
         scores = start_scoring()
 
-        create_table(scores)
+        create_table(await scores)
 
 
 if __name__ == "__main__":
-    app()
+    asyncio.run(app())
