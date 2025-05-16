@@ -1,3 +1,8 @@
 .env
 /examples
 rubric.pdf
+__pycache__/
+*.pyc
+.env
+.DS_Store
+*.log
